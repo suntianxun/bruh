@@ -4,6 +4,7 @@ package brew
 import (
 	"encoding/json"
 	"os/exec"
+	"strings"
 )
 
 func GetInstalled() ([]PackageInfo, error) {
@@ -28,4 +29,44 @@ func GetInstalled() ([]PackageInfo, error) {
 		all = append(all, c)
 	}
 	return all, nil
+}
+
+func Search(query string) ([]PackageInfo, error) {
+	if query == "" {
+		return nil, nil
+	}
+	// Brew search returns simple text lines, not json
+	cmd := exec.Command("brew", "search", query)
+	out, err := cmd.Output()
+	if err != nil {
+		// brew search returns non-zero if no results found
+		return nil, nil
+	}
+
+	var results []PackageInfo
+	lines := strings.Split(string(out), "\n")
+	
+	isCaskSection := false
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if line == "==> Formulae" {
+			isCaskSection = false
+			continue
+		}
+		if line == "==> Casks" {
+			isCaskSection = true
+			continue
+		}
+		
+		// It's a package name
+		results = append(results, PackageInfo{
+			Name: line,
+			Desc: "Press enter to view details", // We don't get descriptions from basic search
+			IsCask: isCaskSection,
+		})
+	}
+	return results, nil
 }
