@@ -21,16 +21,20 @@ type Model struct {
 	tab      activeTab
 	pkgList  list.Model
 	search   components.SearchModel
+	progress components.ProgressModel
 	width    int
 	height   int
 }
 
 func InitialModel() Model {
-	// Start with empty list, fetch in Init
+	prog := components.NewProgressModel()
+	prog.Active = true
+	prog.Message = "Loading packages..."
 	return Model{
-		tab:     tabInstalled,
-		pkgList: components.NewList(nil, 20, 10),
-		search:  components.NewSearchModel(20, 10),
+		tab:      tabInstalled,
+		pkgList:  components.NewList(nil, 20, 10),
+		search:   components.NewSearchModel(20, 10),
+		progress: prog,
 	}
 }
 
@@ -38,13 +42,16 @@ type pkgsLoadedMsg []brew.PackageInfo
 type errMsg error
 
 func fetchInstalledCmd() tea.Cmd {
-	return func() tea.Msg {
-		res, err := brew.GetInstalled()
-		if err != nil {
-			return errMsg(err)
-		}
-		return pkgsLoadedMsg(res)
-	}
+	return tea.Batch(
+		components.NewProgressModel().Spinner.Tick,
+		func() tea.Msg {
+			res, err := brew.GetInstalled()
+			if err != nil {
+				return errMsg(err)
+			}
+			return pkgsLoadedMsg(res)
+		},
+	)
 }
 
 func (m Model) Init() tea.Cmd {
@@ -52,13 +59,27 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
 	var cmd tea.Cmd
+
+	m.progress, cmd = m.progress.Update(msg)
+	cmds = append(cmds, cmd)
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.pkgList.SetSize(msg.Width, m.height-6) // account for header, tabs, footer
 		m.search, _ = m.search.Update(msg)
 	case tea.KeyMsg:
+		// Don't allow navigation if progress is active
+		if m.progress.Active {
+			switch msg.String() {
+			case "ctrl+c", "q":
+				return m, tea.Quit
+			}
+			return m, tea.Batch(cmds...)
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -70,15 +91,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case pkgsLoadedMsg:
+		m.progress.Active = false
 		m.pkgList = components.NewList(msg, m.width, m.height-6)
 	}
 	
-	if m.tab == tabInstalled {
-		m.pkgList, cmd = m.pkgList.Update(msg)
-	} else if m.tab == tabSearch {
-		m.search, cmd = m.search.Update(msg)
+	if !m.progress.Active {
+		if m.tab == tabInstalled {
+			m.pkgList, cmd = m.pkgList.Update(msg)
+			cmds = append(cmds, cmd)
+		} else if m.tab == tabSearch {
+			m.search, cmd = m.search.Update(msg)
+			cmds = append(cmds, cmd)
+		}
 	}
-	return m, cmd
+	
+	return m, tea.Batch(cmds...)
 }
 
 func (m Model) View() string {
@@ -87,13 +114,17 @@ func (m Model) View() string {
 	renderedTabs := components.RenderTabs(tabs, int(m.tab), m.width)
 	
 	var mainContent string
-	switch m.tab {
-	case tabInstalled:
-		mainContent = m.pkgList.View()
-	case tabSearch:
-		mainContent = m.search.View()
-	case tabUpdates:
-		mainContent = "Updates functionality coming soon..."
+	if m.progress.Active {
+		mainContent = m.progress.View()
+	} else {
+		switch m.tab {
+		case tabInstalled:
+			mainContent = m.pkgList.View()
+		case tabSearch:
+			mainContent = m.search.View()
+		case tabUpdates:
+			mainContent = "Updates functionality coming soon..."
+		}
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, renderedTabs, mainContent)
