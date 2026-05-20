@@ -20,6 +20,7 @@ const (
 type Model struct {
 	tab      activeTab
 	pkgList  list.Model
+	search   components.SearchModel
 	width    int
 	height   int
 }
@@ -29,6 +30,7 @@ func InitialModel() Model {
 	return Model{
 		tab:     tabInstalled,
 		pkgList: components.NewList(nil, 20, 10),
+		search:  components.NewSearchModel(20, 10),
 	}
 }
 
@@ -55,6 +57,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.pkgList.SetSize(msg.Width, m.height-6) // account for header, tabs, footer
+		m.search, _ = m.search.Update(msg)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -72,6 +75,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	
 	if m.tab == tabInstalled {
 		m.pkgList, cmd = m.pkgList.Update(msg)
+	} else if m.tab == tabSearch {
+		m.search, cmd = m.search.Update(msg)
 	}
 	return m, cmd
 }
@@ -86,7 +91,7 @@ func (m Model) View() string {
 	case tabInstalled:
 		mainContent = m.pkgList.View()
 	case tabSearch:
-		mainContent = "Search functionality coming soon..."
+		mainContent = m.search.View()
 	case tabUpdates:
 		mainContent = "Updates functionality coming soon..."
 	}
