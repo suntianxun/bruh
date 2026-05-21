@@ -2,6 +2,8 @@
 package components
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -11,6 +13,7 @@ type ProgressModel struct {
 	Spinner spinner.Model
 	Active  bool
 	Message string
+	Logs    []string
 }
 
 func NewProgressModel() ProgressModel {
@@ -35,12 +38,17 @@ func (m ProgressModel) View() string {
 	if !m.Active {
 		return ""
 	}
+
+	logLines := strings.Join(m.Logs, "\n")
+	if logLines != "" {
+		logLines = "\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#a6adc8")).Render(logLines)
+	}
+
 	overlay := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("#cba6f7")).
 		Padding(1, 2).
-		Render(lipgloss.JoinHorizontal(lipgloss.Center, m.Spinner.View(), " ", m.Message))
-		
-	// For simplicity in this plan, we'll just render it as a block rather than true absolute positioning
+		Render(lipgloss.JoinHorizontal(lipgloss.Center, m.Spinner.View(), " ", m.Message) + logLines)
+
 	return overlay
 }

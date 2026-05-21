@@ -2,7 +2,10 @@
 package brew
 
 import (
+	"bufio"
 	"encoding/json"
+	"io"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -83,53 +86,62 @@ func SearchRemote(query string) ([]PackageInfo, error) {
 	return all, nil
 }
 
-func Search(query string) ([]PackageInfo, error) {
-	// Not used anymore, replaced by SearchRemote
-	return SearchRemote(query)
+func RunStreaming(args []string, outChan chan<- string) error {
+	cmd := exec.Command("brew", args...)
+	cmd.Env = append(os.Environ(), "HOMEBREW_NO_AUTO_UPDATE=1", "HOMEBREW_NO_ENV_HINTS=1")
+
+	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	// Read both stdout and stderr
+	go func() {
+		scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
+		for scanner.Scan() {
+			outChan <- scanner.Text()
+		}
+	}()
+
+	return cmd.Wait()
 }
 
-func Install(name string, isCask bool) error {
+func Install(name string, isCask bool, outChan chan<- string) error {
 	args := []string{"install"}
 	if isCask {
 		args = append(args, "--cask")
 	}
 	args = append(args, name)
-	
-	cmd := exec.Command("brew", args...)
-	return cmd.Run()
+	return RunStreaming(args, outChan)
 }
 
-func Uninstall(name string, isCask bool) error {
+func Uninstall(name string, isCask bool, outChan chan<- string) error {
 	args := []string{"uninstall"}
 	if isCask {
 		args = append(args, "--cask")
 	}
 	args = append(args, name)
-	
-	cmd := exec.Command("brew", args...)
-	return cmd.Run()
+	return RunStreaming(args, outChan)
 }
 
-func Upgrade(name string, isCask bool) error {
+func Upgrade(name string, isCask bool, outChan chan<- string) error {
 	args := []string{"upgrade"}
 	if isCask {
 		args = append(args, "--cask")
 	}
 	args = append(args, name)
-	
-	cmd := exec.Command("brew", args...)
-	return cmd.Run()
+	return RunStreaming(args, outChan)
 }
 
-func Reinstall(name string, isCask bool) error {
+func Reinstall(name string, isCask bool, outChan chan<- string) error {
 	args := []string{"reinstall"}
 	if isCask {
 		args = append(args, "--cask")
 	}
 	args = append(args, name)
-	
-	cmd := exec.Command("brew", args...)
-	return cmd.Run()
+	return RunStreaming(args, outChan)
 }
 
 func GetOutdated() ([]PackageInfo, error) {

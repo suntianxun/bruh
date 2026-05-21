@@ -12,12 +12,26 @@ import (
 	"github.com/user/brew-tui/internal/ui/components"
 )
 
+type logMsg string
+type actionDoneMsg error
+
+func waitForLog(c chan string) tea.Cmd {
+	return func() tea.Msg {
+		msg, ok := <-c
+		if !ok {
+			return nil
+		}
+		return logMsg(msg)
+	}
+}
+
 type Model struct {
 	pkgTable   list.Model
 	pkgs       []brew.PackageInfo
 	search     components.SearchModel
 	showSearch bool
 	progress   components.ProgressModel
+	logChan    chan string
 	width      int
 	height     int
 }
@@ -48,29 +62,22 @@ func fetchInstalledCmd() tea.Cmd {
 	)
 }
 
-func brewActionCmd(action string, name string, isCask bool) tea.Cmd {
+func brewActionCmd(action string, name string, isCask bool, c chan string) tea.Cmd {
 	return func() tea.Msg {
 		var err error
 		switch action {
 		case "upgrade":
-			err = brew.Upgrade(name, isCask)
+			err = brew.Upgrade(name, isCask, c)
 		case "uninstall":
-			err = brew.Uninstall(name, isCask)
+			err = brew.Uninstall(name, isCask, c)
 		case "reinstall":
-			err = brew.Reinstall(name, isCask)
+			err = brew.Reinstall(name, isCask, c)
 		case "install":
-			err = brew.Install(name, isCask)
+			err = brew.Install(name, isCask, c)
 		}
 		
-		if err != nil {
-			return errMsg(err)
-		}
-		
-		res, err := brew.GetInstalled()
-		if err != nil {
-			return errMsg(err)
-		}
-		return pkgsLoadedMsg(res)
+		close(c)
+		return actionDoneMsg(err)
 	}
 }
 
@@ -90,6 +97,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.pkgTable = components.NewPackageTable(m.pkgs, m.width, m.height-12)
 		m.search, _ = m.search.Update(msg)
+
+	case logMsg:
+		m.progress.Logs = append(m.progress.Logs, string(msg))
+		if len(m.progress.Logs) > 10 {
+			m.progress.Logs = m.progress.Logs[len(m.progress.Logs)-10:]
+		}
+		return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan))
+
+	case actionDoneMsg:
+		if msg != nil { // an error occurred
+			m.progress.Message = "Error: " + msg.Error()
+			m.progress.Active = false
+		} else {
+			m.progress.Message = "Reloading packages..."
+			m.progress.Logs = nil // clear logs
+			return m, tea.Batch(m.progress.Spinner.Tick, fetchInstalledCmd())
+		}
+
 	case tea.KeyMsg:
 		if m.progress.Active {
 			switch msg.String() {
@@ -114,19 +139,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if cursor >= 0 && cursor < len(m.search.Results.Items()) {
 						item := m.search.Results.Items()[cursor].(components.PackageItem)
 						m.progress.Active = true
+						m.progress.Logs = nil
+						m.logChan = make(chan string)
+						
 						action := "install"
 						if msg.String() == "d" {
 							action = "uninstall"
 						}
 						m.progress.Message = action + "ing " + item.Name + "..."
 						m.showSearch = false // close search on action
-						return m, tea.Batch(m.progress.Spinner.Tick, brewActionCmd(action, item.Name, item.IsCask))
+						
+						return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan), brewActionCmd(action, item.Name, item.IsCask, m.logChan))
 					}
 				}
 			}
 		} else {
 			// Main table view
-			// Let list handle its own filter input if active
 			if m.pkgTable.FilterState() == list.Filtering {
 				break
 			}
@@ -142,6 +170,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					item := m.pkgTable.Items()[cursor].(components.PackageItem)
 					name := item.Name
 					m.progress.Active = true
+					m.progress.Logs = nil
+					m.logChan = make(chan string)
+
 					action := "upgrade"
 					if msg.String() == "d" {
 						action = "uninstall"
@@ -149,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						action = "reinstall"
 					}
 					m.progress.Message = action + "ing " + name + "..."
-					return m, tea.Batch(m.progress.Spinner.Tick, brewActionCmd(action, name, item.IsCask))
+					return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan), brewActionCmd(action, name, item.IsCask, m.logChan))
 				}
 			}
 		}
@@ -217,7 +248,6 @@ func RenderGradientBruh() string {
 
 func (m Model) View() string {
 	if m.showSearch {
-		// Calculate overlay position manually or just show it centered
 		searchView := lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.search.View())
 		return searchView
 	}
@@ -226,7 +256,7 @@ func (m Model) View() string {
 	
 	var mainContent string
 	if m.progress.Active {
-		mainContent = m.progress.View()
+		mainContent = lipgloss.Place(m.width, m.height-12, lipgloss.Center, lipgloss.Center, m.progress.View())
 	} else {
 		tableHeader := components.RenderTableHeader(m.width)
 		mainContent = lipgloss.JoinVertical(lipgloss.Left, tableHeader, m.pkgTable.View())
