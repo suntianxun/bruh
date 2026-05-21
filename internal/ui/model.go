@@ -18,12 +18,13 @@ const (
 )
 
 type Model struct {
-	tab      activeTab
-	pkgList  list.Model
-	search   components.SearchModel
-	progress components.ProgressModel
-	width    int
-	height   int
+	tab          activeTab
+	pkgList      list.Model
+	search       components.SearchModel
+	outdatedList list.Model
+	progress     components.ProgressModel
+	width        int
+	height       int
 }
 
 func InitialModel() Model {
@@ -31,14 +32,16 @@ func InitialModel() Model {
 	prog.Active = true
 	prog.Message = "Loading packages..."
 	return Model{
-		tab:      tabInstalled,
-		pkgList:  components.NewList(nil, 20, 10),
-		search:   components.NewSearchModel(20, 10),
-		progress: prog,
+		tab:          tabInstalled,
+		pkgList:      components.NewList(nil, 20, 10),
+		search:       components.NewSearchModel(20, 10),
+		outdatedList: components.NewList(nil, 20, 10),
+		progress:     prog,
 	}
 }
 
 type pkgsLoadedMsg []brew.PackageInfo
+type outdatedLoadedMsg []brew.PackageInfo
 type errMsg error
 
 func fetchInstalledCmd() tea.Cmd {
@@ -54,8 +57,21 @@ func fetchInstalledCmd() tea.Cmd {
 	)
 }
 
+func fetchOutdatedCmd() tea.Cmd {
+	return tea.Batch(
+		components.NewProgressModel().Spinner.Tick,
+		func() tea.Msg {
+			res, err := brew.GetOutdated()
+			if err != nil {
+				return errMsg(err)
+			}
+			return outdatedLoadedMsg(res)
+		},
+	)
+}
+
 func (m Model) Init() tea.Cmd {
-	return fetchInstalledCmd()
+	return tea.Batch(fetchInstalledCmd(), fetchOutdatedCmd())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -69,6 +85,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		m.pkgList.SetSize(msg.Width, m.height-6) // account for header, tabs, footer
+		m.outdatedList.SetSize(msg.Width, m.height-6)
 		m.search, _ = m.search.Update(msg)
 	case tea.KeyMsg:
 		// Don't allow navigation if progress is active
@@ -93,6 +110,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pkgsLoadedMsg:
 		m.progress.Active = false
 		m.pkgList = components.NewList(msg, m.width, m.height-6)
+	case outdatedLoadedMsg:
+		m.progress.Active = false
+		m.outdatedList = components.NewList(msg, m.width, m.height-6)
+		m.outdatedList.Title = "Updates Available"
 	}
 	
 	if !m.progress.Active {
@@ -101,6 +122,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		} else if m.tab == tabSearch {
 			m.search, cmd = m.search.Update(msg)
+			cmds = append(cmds, cmd)
+		} else if m.tab == tabUpdates {
+			m.outdatedList, cmd = m.outdatedList.Update(msg)
 			cmds = append(cmds, cmd)
 		}
 	}
@@ -123,7 +147,7 @@ func (m Model) View() string {
 		case tabSearch:
 			mainContent = m.search.View()
 		case tabUpdates:
-			mainContent = "Updates functionality coming soon..."
+			mainContent = m.outdatedList.View()
 		}
 	}
 
