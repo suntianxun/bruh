@@ -10,25 +10,27 @@ import (
 )
 
 type SearchModel struct {
-	Input   textinput.Model
-	Results list.Model
-	pkgs    []brew.PackageInfo
-	width   int
-	height  int
+	Input        textinput.Model
+	Results      list.Model
+	pkgs         []brew.PackageInfo
+	InputFocused bool
+	width        int
+	height       int
 }
 
 func NewSearchModel(width, height int) SearchModel {
 	ti := textinput.New()
-	ti.Placeholder = "Search for a package..."
+	ti.Placeholder = "Search remote packages (Enter to search)..."
 	ti.Focus()
 	ti.CharLimit = 156
-	ti.Width = 50
+	ti.Width = width - 4
 
 	return SearchModel{
-		Input:   ti,
-		Results: NewPackageTable(nil, width, height-4),
-		width:   width,
-		height:  height,
+		Input:        ti,
+		Results:      NewPackageTable(nil, width-4, height-7),
+		InputFocused: true,
+		width:        width,
+		height:       height,
 	}
 }
 
@@ -36,9 +38,9 @@ type SearchResultsMsg []brew.PackageInfo
 
 func SearchCmd(query string) tea.Cmd {
 	return func() tea.Msg {
-		res, err := brew.Search(query)
+		res, err := brew.SearchRemote(query)
 		if err != nil {
-			return err // In a real app we'd wrap this
+			return err
 		}
 		return SearchResultsMsg(res)
 	}
@@ -51,23 +53,38 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.Results = NewPackageTable(m.pkgs, m.width, m.height-4)
+		m.Input.Width = m.width - 4
+		m.Results.SetSize(m.width-4, m.height-7)
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyEnter:
-			if m.Input.Focused() {
+		if m.InputFocused {
+			switch msg.Type {
+			case tea.KeyEnter:
+				if m.Input.Value() != "" {
+					m.Input.Blur()
+					m.InputFocused = false
+					return m, SearchCmd(m.Input.Value())
+				}
+			case tea.KeyDown, tea.KeyTab:
 				m.Input.Blur()
-				return m, SearchCmd(m.Input.Value())
+				m.InputFocused = false
 			}
-		case tea.KeyEsc:
-			m.Input.Focus()
+		} else {
+			// List focused
+			switch msg.Type {
+			case tea.KeyUp, tea.KeyShiftTab:
+				if m.Results.Index() == 0 || msg.Type == tea.KeyShiftTab {
+					m.InputFocused = true
+					m.Input.Focus()
+				}
+			}
+			// Let list handle navigation
 		}
 	case SearchResultsMsg:
 		m.pkgs = msg
-		m.Results = NewPackageTable(msg, m.width, m.height-4)
+		m.Results = NewPackageTable(msg, m.width-4, m.height-7)
 	}
 
-	if m.Input.Focused() {
+	if m.InputFocused {
 		m.Input, cmd = m.Input.Update(msg)
 		cmds = append(cmds, cmd)
 	} else {
@@ -79,10 +96,26 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 }
 
 func (m SearchModel) View() string {
-	tableHeader := RenderTableHeader(m.width)
-	return lipgloss.JoinVertical(lipgloss.Left,
-		lipgloss.NewStyle().Padding(1, 2).Render(m.Input.View()),
+	boxStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#cba6f7")). // Mauve
+		Padding(1, 1).
+		Width(m.width - 2).
+		Height(m.height - 2)
+
+	tableHeader := RenderTableHeader(m.width - 4)
+	
+	inputView := m.Input.View()
+	if m.InputFocused {
+		inputView = lipgloss.NewStyle().Foreground(lipgloss.Color("#cba6f7")).Render(inputView)
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Left,
+		inputView,
+		"",
 		tableHeader,
 		m.Results.View(),
 	)
+
+	return boxStyle.Render(content)
 }

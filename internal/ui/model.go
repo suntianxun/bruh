@@ -1,3 +1,4 @@
+// internal/ui/model.go
 package ui
 
 import (
@@ -11,21 +12,14 @@ import (
 	"github.com/user/brew-tui/internal/ui/components"
 )
 
-type activeTab int
-
-const (
-	tabInstalled activeTab = iota
-	tabSearch
-)
-
 type Model struct {
-	tab          activeTab
-	pkgTable     list.Model
-	pkgs         []brew.PackageInfo
-	search       components.SearchModel
-	progress     components.ProgressModel
-	width        int
-	height       int
+	pkgTable   list.Model
+	pkgs       []brew.PackageInfo
+	search     components.SearchModel
+	showSearch bool
+	progress   components.ProgressModel
+	width      int
+	height     int
 }
 
 func InitialModel() Model {
@@ -33,10 +27,9 @@ func InitialModel() Model {
 	prog.Active = true
 	prog.Message = "Loading packages..."
 	return Model{
-		tab:          tabInstalled,
-		pkgTable:     components.NewPackageTable(nil, 80, 10),
-		search:       components.NewSearchModel(80, 10),
-		progress:     prog,
+		pkgTable: components.NewPackageTable(nil, 80, 10),
+		search:   components.NewSearchModel(80, 10),
+		progress: prog,
 	}
 }
 
@@ -65,6 +58,8 @@ func brewActionCmd(action string, name string, isCask bool) tea.Cmd {
 			err = brew.Uninstall(name, isCask)
 		case "reinstall":
 			err = brew.Reinstall(name, isCask)
+		case "install":
+			err = brew.Install(name, isCask)
 		}
 		
 		if err != nil {
@@ -78,7 +73,6 @@ func brewActionCmd(action string, name string, isCask bool) tea.Cmd {
 		return pkgsLoadedMsg(res)
 	}
 }
-
 
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(components.NewProgressModel().Spinner.Tick, fetchInstalledCmd())
@@ -94,32 +88,59 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.pkgTable = components.NewPackageTable(m.pkgs, m.width, m.height-6)
+		m.pkgTable = components.NewPackageTable(m.pkgs, m.width, m.height-12)
 		m.search, _ = m.search.Update(msg)
 	case tea.KeyMsg:
 		if m.progress.Active {
 			switch msg.String() {
-			case "ctrl+c", "q":
+			case "ctrl+c":
 				return m, tea.Quit
 			}
 			return m, tea.Batch(cmds...)
 		}
 
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "tab", "right", "l":
-			m.tab = (m.tab + 1) % 2
-			return m, nil
-		case "shift+tab", "left", "h":
-			m.tab = (m.tab - 1 + 2) % 2
-			return m, nil
-		case "u", "d", "r":
-			if m.tab == tabInstalled {
+		if m.showSearch {
+			switch msg.String() {
+			case "ctrl+c":
+				return m, tea.Quit
+			case "q":
+				if !m.search.InputFocused {
+					m.showSearch = false
+					return m, nil
+				}
+			case "i", "d":
+				if !m.search.InputFocused {
+					cursor := m.search.Results.Index()
+					if cursor >= 0 && cursor < len(m.search.Results.Items()) {
+						item := m.search.Results.Items()[cursor].(components.PackageItem)
+						m.progress.Active = true
+						action := "install"
+						if msg.String() == "d" {
+							action = "uninstall"
+						}
+						m.progress.Message = action + "ing " + item.Name + "..."
+						m.showSearch = false // close search on action
+						return m, tea.Batch(m.progress.Spinner.Tick, brewActionCmd(action, item.Name, item.IsCask))
+					}
+				}
+			}
+		} else {
+			// Main table view
+			// Let list handle its own filter input if active
+			if m.pkgTable.FilterState() == list.Filtering {
+				break
+			}
+			switch msg.String() {
+			case "ctrl+c", "q":
+				return m, tea.Quit
+			case "s":
+				m.showSearch = true
+				return m, nil
+			case "u", "d", "r":
 				cursor := m.pkgTable.Index()
-				if cursor >= 0 && cursor < len(m.pkgs) {
-					pkg := m.pkgs[cursor]
-					name := pkg.Name
+				if cursor >= 0 && cursor < len(m.pkgTable.Items()) {
+					item := m.pkgTable.Items()[cursor].(components.PackageItem)
+					name := item.Name
 					m.progress.Active = true
 					action := "upgrade"
 					if msg.String() == "d" {
@@ -128,10 +149,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						action = "reinstall"
 					}
 					m.progress.Message = action + "ing " + name + "..."
-					return m, tea.Batch(m.progress.Spinner.Tick, brewActionCmd(action, name, pkg.IsCask))
+					return m, tea.Batch(m.progress.Spinner.Tick, brewActionCmd(action, name, item.IsCask))
 				}
 			}
 		}
+
 	case pkgsLoadedMsg:
 		m.progress.Active = false
 		sorted := make([]brew.PackageInfo, len(msg))
@@ -143,18 +165,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return sorted[i].IsOutdated // true (outdated) comes before false
 		})
 		m.pkgs = sorted
-		m.pkgTable = components.NewPackageTable(sorted, m.width, m.height-8) // -8 for header + table header
+		m.pkgTable = components.NewPackageTable(sorted, m.width, m.height-12)
 	case errMsg:
 		m.progress.Active = false
 		m.progress.Message = "Error: " + msg.Error()
 	}
 	
 	if !m.progress.Active {
-		if m.tab == tabInstalled {
-			m.pkgTable, cmd = m.pkgTable.Update(msg)
-			cmds = append(cmds, cmd)
-		} else if m.tab == tabSearch {
+		if m.showSearch {
 			m.search, cmd = m.search.Update(msg)
+			cmds = append(cmds, cmd)
+		} else {
+			m.pkgTable, cmd = m.pkgTable.Update(msg)
 			cmds = append(cmds, cmd)
 		}
 	}
@@ -163,31 +185,51 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func RenderGradientBruh() string {
-	text := "Bruh"
-	colors := []string{"#cba6f7", "#f5c2e7", "#f2cdcd", "#f5e0dc"}
-	var out string
-	for i, c := range text {
-		out += lipgloss.NewStyle().Foreground(lipgloss.Color(colors[i])).Bold(true).Render(string(c))
+	ascii := []string{
+		`  ____                  _     `,
+		` |  _ \                | |    `,
+		` | |_) | _ __  _   _   | |__  `,
+		` |  _ < | '__|| | | |  | '_ \ `,
+		` | |_) || |   | |_| |  | | | |`,
+		` |____/ |_|    \__,_|  |_| |_|`,
 	}
-	return lipgloss.NewStyle().Padding(0, 1).Render(out)
+	colors := []lipgloss.Color{
+		lipgloss.Color("#cba6f7"),
+		lipgloss.Color("#f5c2e7"),
+		lipgloss.Color("#f2cdcd"),
+		lipgloss.Color("#f5e0dc"),
+	}
+
+	var out []string
+	for _, line := range ascii {
+		var coloredLine string
+		for i, c := range line {
+			colorIdx := (i * len(colors)) / len(line)
+			if colorIdx >= len(colors) {
+				colorIdx = len(colors) - 1
+			}
+			coloredLine += lipgloss.NewStyle().Foreground(colors[colorIdx]).Bold(true).Render(string(c))
+		}
+		out = append(out, coloredLine)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, out...) + "\n\n"
 }
 
 func (m Model) View() string {
+	if m.showSearch {
+		// Calculate overlay position manually or just show it centered
+		searchView := lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.search.View())
+		return searchView
+	}
+
 	header := RenderGradientBruh()
-	tabs := []string{"Installed", "Search"}
-	renderedTabs := components.RenderTabs(tabs, int(m.tab), m.width)
 	
 	var mainContent string
 	if m.progress.Active {
 		mainContent = m.progress.View()
 	} else {
-		switch m.tab {
-		case tabInstalled:
-			tableHeader := components.RenderTableHeader(m.width)
-			mainContent = lipgloss.JoinVertical(lipgloss.Left, tableHeader, m.pkgTable.View())
-		case tabSearch:
-			mainContent = m.search.View()
-		}
+		tableHeader := components.RenderTableHeader(m.width)
+		mainContent = lipgloss.JoinVertical(lipgloss.Left, tableHeader, m.pkgTable.View())
 	}
 
 	var total, outdated, uptodate int
@@ -203,12 +245,13 @@ func (m Model) View() string {
 	statusText := fmt.Sprintf(" Total: %d • Up-to-date: %d • Outdated: %d", total, uptodate, outdated)
 	statusLine := lipgloss.NewStyle().Foreground(lipgloss.Color("#a6adc8")).Padding(0, 1).Render(statusText)
 
-	help := lipgloss.NewStyle().Foreground(lipgloss.Color("#6c7086")).Render(" u: upgrade • d: uninstall • r: reinstall • tab: switch view • q: quit")
-	if m.tab != tabInstalled || m.progress.Active {
-		help = ""
+	helpText := " /: filter • s: search remote • u: upgrade • d: uninstall • r: reinstall • q: quit"
+	if m.progress.Active {
+		helpText = ""
 	}
+	help := lipgloss.NewStyle().Foreground(lipgloss.Color("#6c7086")).Render(helpText)
 
 	footer := lipgloss.JoinHorizontal(lipgloss.Left, statusLine, "  ", help)
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, renderedTabs, mainContent, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, header, mainContent, footer)
 }

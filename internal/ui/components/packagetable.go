@@ -15,7 +15,8 @@ import (
 var (
 	colorOutdated = lipgloss.Color("#f38ba8") // Mocha Red
 	colorUpToDate = lipgloss.Color("#a6e3a1") // Mocha Green
-	colorSelected = lipgloss.Color("#cba6f7") // Mocha Mauve
+	colorSelected = lipgloss.Color("#1e1e2e")
+	colorSelectedBg = lipgloss.Color("#cba6f7") // Mocha Mauve
 	colorText     = lipgloss.Color("#cdd6f4")
 	colorSurface  = lipgloss.Color("#313244")
 )
@@ -70,15 +71,18 @@ func (d packageDelegate) Render(w io.Writer, m list.Model, index int, listItem l
 	lat := runewidth.Truncate(latest, col4W, "…")
 	ptype := runewidth.Truncate(pkgType, col5W, "…")
 
-	var fg lipgloss.Color = colorUpToDate
-	if i.IsOutdated {
-		fg = colorOutdated
+	var fg lipgloss.Color = colorText
+	if i.CurrentVersion != "" {
+		fg = colorUpToDate
+		if i.IsOutdated {
+			fg = colorOutdated
+		}
 	}
 
 	bg := lipgloss.Color("")
 	if index == m.Index() {
-		fg = lipgloss.Color("#1e1e2e")
-		bg = colorSelected
+		fg = colorSelected
+		bg = colorSelectedBg
 	}
 
 	style := lipgloss.NewStyle().Foreground(fg).Background(bg)
@@ -127,7 +131,7 @@ func RenderTableHeader(width int) string {
 
 	col1 := fmt.Sprintf(fmt1, "Package")
 	col2 := fmt.Sprintf(fmt2, "Description")
-	col3 := fmt.Sprintf(fmt3, "Installed")
+	col3 := fmt.Sprintf(fmt3, "Version")
 	col4 := fmt.Sprintf(fmt4, "Latest")
 	col5 := fmt.Sprintf(fmt5, "Type")
 
@@ -145,7 +149,7 @@ func NewPackageTable(pkgs []brew.PackageInfo, width, height int) list.Model {
 	l := list.New(items, d, width, height)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
+	l.SetFilteringEnabled(true) // Filter using /
 	l.SetShowHelp(false)
 	
 	return l
