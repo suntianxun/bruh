@@ -15,7 +15,7 @@ import (
 var (
 	colorOutdated = lipgloss.Color("#f38ba8") // Mocha Red
 	colorUpToDate = lipgloss.Color("#bac2de") // Mocha Subtext1 (softer)
-	colorSelected = lipgloss.Color("#cba6f7") // Mocha Mauve text
+	colorSelected = lipgloss.Color("#f9e2af") // Mocha Yellow (Golden)
 	colorSelectedBg = lipgloss.Color("#313244") // Mocha Surface0 subtle background
 	colorText     = lipgloss.Color("#cdd6f4")
 	colorSurface  = lipgloss.Color("#313244")
@@ -119,27 +119,42 @@ func RenderTableHeader(width int) string {
 		col2W = 20
 	}
 
-	s := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#b4befe")). // Mocha Sapphire
-		Bold(true).
-		Border(lipgloss.NormalBorder(), false, false, true, false).
-		BorderForeground(lipgloss.Color("#585b70")). // Mocha Surface2
-		PaddingBottom(0)
-	
 	fmt1 := fmt.Sprintf("%%-%ds", col1W)
 	fmt2 := fmt.Sprintf("%%-%ds", col2W)
 	fmt3 := fmt.Sprintf("%%-%ds", col3W)
 	fmt4 := fmt.Sprintf("%%-%ds", col4W)
 	fmt5 := fmt.Sprintf("%%-%ds", col5W)
 
-	col1 := fmt.Sprintf(fmt1, "PACKAGE")
-	col2 := fmt.Sprintf(fmt2, "DESCRIPTION")
-	col3 := fmt.Sprintf(fmt3, "VERSION")
-	col4 := fmt.Sprintf(fmt4, "LATEST")
-	col5 := fmt.Sprintf(fmt5, "TYPE")
+	col1 := fmt.Sprintf(fmt1, "Package")
+	col2 := fmt.Sprintf(fmt2, "Description")
+	col3 := fmt.Sprintf(fmt3, "Version")
+	col4 := fmt.Sprintf(fmt4, "Latest")
+	col5 := fmt.Sprintf(fmt5, "Type")
 
-	row := fmt.Sprintf("%s %s %s %s %s", col1, col2, col3, col4, col5)
-	return s.Render(runewidth.FillRight(row, width))
+	rowText := fmt.Sprintf("%s %s %s %s %s", col1, col2, col3, col4, col5)
+	rowText = runewidth.FillRight(rowText, width)
+
+	colors := []lipgloss.Color{
+		lipgloss.Color("#cba6f7"),
+		lipgloss.Color("#f5c2e7"),
+		lipgloss.Color("#f2cdcd"),
+		lipgloss.Color("#f5e0dc"),
+	}
+
+	var coloredRow string
+	for i, c := range rowText {
+		colorIdx := (i * len(colors)) / len(rowText)
+		if colorIdx >= len(colors) {
+			colorIdx = len(colors) - 1
+		}
+		coloredRow += lipgloss.NewStyle().Foreground(colors[colorIdx]).Bold(true).Render(string(c))
+	}
+
+	return lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder(), false, false, true, false).
+		BorderForeground(lipgloss.Color("#585b70")). // Mocha Surface2
+		PaddingBottom(0).
+		Render(coloredRow)
 }
 
 func NewPackageTable(pkgs []brew.PackageInfo, width, height int) list.Model {
