@@ -28,7 +28,8 @@ func (i PackageItem) Description() string { return i.Desc }
 func (i PackageItem) FilterValue() string { return i.Name }
 
 type packageDelegate struct {
-	width int
+	width    int
+	isSearch bool
 }
 
 func (d packageDelegate) Height() int                             { return 1 }
@@ -71,24 +72,23 @@ func (d packageDelegate) Render(w io.Writer, m list.Model, index int, listItem l
 	lat := runewidth.Truncate(latest, col4W, "…")
 	ptype := runewidth.Truncate(pkgType, col5W, "…")
 
-	var fg lipgloss.Color = colorText
-	if i.CurrentVersion != "" {
-		fg = colorUpToDate
-		if i.IsOutdated {
-			fg = colorOutdated
-		}
-	}
-
-	bg := lipgloss.Color("")
+	var fg lipgloss.Color
+	var bg lipgloss.Color
 	bold := false
+	useGradient := false
+
 	if index == m.Index() {
 		fg = colorSelected
 		bg = colorSelectedBg
 		bold = true
+	} else if d.isSearch && i.CurrentVersion != "" {
+		fg = lipgloss.Color("#a6e3a1") // Mocha Green
+	} else if i.IsOutdated {
+		fg = colorOutdated
+	} else {
+		useGradient = true
 	}
 
-	style := lipgloss.NewStyle().Foreground(fg).Background(bg).Bold(bold)
-	
 	// Format strings to exact width using left-alignment and spaces
 	fmt1 := fmt.Sprintf("%%-%ds", col1W)
 	fmt2 := fmt.Sprintf("%%-%ds", col2W)
@@ -103,10 +103,40 @@ func (d packageDelegate) Render(w io.Writer, m list.Model, index int, listItem l
 	col5 := fmt.Sprintf(fmt5, ptype)
 
 	row := fmt.Sprintf("%s %s %s %s %s", col1, col2, col3, col4, col5)
+	row = runewidth.FillRight(row, d.width)
+
+	var fullRow string
+	if useGradient {
+		fullRow = applyGradient(row, bold, bg)
+	} else {
+		fullRow = lipgloss.NewStyle().Foreground(fg).Background(bg).Bold(bold).Render(row)
+	}
 	
-	// Render row width with background spanning full table width
-	fullRow := style.Render(runewidth.FillRight(row, d.width))
 	fmt.Fprint(w, fullRow)
+}
+
+func applyGradient(text string, bold bool, bg lipgloss.Color) string {
+	colors := []lipgloss.Color{
+		lipgloss.Color("#cba6f7"),
+		lipgloss.Color("#f5c2e7"),
+		lipgloss.Color("#eba0ac"),
+		lipgloss.Color("#fab387"),
+		lipgloss.Color("#f9e2af"),
+	}
+
+	var coloredRow string
+	for i, c := range text {
+		colorIdx := (i * len(colors)) / len(text)
+		if colorIdx >= len(colors) {
+			colorIdx = len(colors) - 1
+		}
+		style := lipgloss.NewStyle().Foreground(colors[colorIdx]).Bold(bold)
+		if bg != "" {
+			style = style.Background(bg)
+		}
+		coloredRow += style.Render(string(c))
+	}
+	return coloredRow
 }
 
 func RenderTableHeader(width int) string {
@@ -134,21 +164,7 @@ func RenderTableHeader(width int) string {
 	rowText := fmt.Sprintf("%s %s %s %s %s", col1, col2, col3, col4, col5)
 	rowText = runewidth.FillRight(rowText, width)
 
-	colors := []lipgloss.Color{
-		lipgloss.Color("#cba6f7"),
-		lipgloss.Color("#f5c2e7"),
-		lipgloss.Color("#f2cdcd"),
-		lipgloss.Color("#f5e0dc"),
-	}
-
-	var coloredRow string
-	for i, c := range rowText {
-		colorIdx := (i * len(colors)) / len(rowText)
-		if colorIdx >= len(colors) {
-			colorIdx = len(colors) - 1
-		}
-		coloredRow += lipgloss.NewStyle().Foreground(colors[colorIdx]).Bold(true).Render(string(c))
-	}
+	coloredRow := applyGradient(rowText, true, "")
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), false, false, true, false).
@@ -157,13 +173,13 @@ func RenderTableHeader(width int) string {
 		Render(coloredRow)
 }
 
-func NewPackageTable(pkgs []brew.PackageInfo, width, height int) list.Model {
+func NewPackageTable(pkgs []brew.PackageInfo, width, height int, isSearch bool) list.Model {
 	var items []list.Item
 	for _, p := range pkgs {
 		items = append(items, PackageItem(p))
 	}
 
-	d := packageDelegate{width: width}
+	d := packageDelegate{width: width, isSearch: isSearch}
 	l := list.New(items, d, width, height)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
