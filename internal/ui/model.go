@@ -140,7 +140,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						item := m.search.Results.Items()[cursor].(components.PackageItem)
 						m.progress.Active = true
 						m.progress.Logs = nil
-						m.logChan = make(chan string)
+						m.logChan = make(chan string, 100)
 						
 						action := "install"
 						if msg.String() == "d" {
@@ -171,7 +171,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					name := item.Name
 					m.progress.Active = true
 					m.progress.Logs = nil
-					m.logChan = make(chan string)
+					m.logChan = make(chan string, 100)
 
 					action := "upgrade"
 					if msg.String() == "d" {

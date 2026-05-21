@@ -90,8 +90,9 @@ func RunStreaming(args []string, outChan chan<- string) error {
 	cmd := exec.Command("brew", args...)
 	cmd.Env = append(os.Environ(), "HOMEBREW_NO_AUTO_UPDATE=1", "HOMEBREW_NO_ENV_HINTS=1")
 
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
+	r, w := io.Pipe()
+	cmd.Stdout = w
+	cmd.Stderr = w
 
 	if err := cmd.Start(); err != nil {
 		return err
@@ -99,13 +100,16 @@ func RunStreaming(args []string, outChan chan<- string) error {
 
 	// Read both stdout and stderr
 	go func() {
-		scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
+		defer r.Close()
+		scanner := bufio.NewScanner(r)
 		for scanner.Scan() {
 			outChan <- scanner.Text()
 		}
 	}()
 
-	return cmd.Wait()
+	err := cmd.Wait()
+	w.Close()
+	return err
 }
 
 func Install(name string, isCask bool, outChan chan<- string) error {
