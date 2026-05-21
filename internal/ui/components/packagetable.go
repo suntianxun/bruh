@@ -14,9 +14,9 @@ import (
 
 var (
 	colorOutdated = lipgloss.Color("#f38ba8") // Mocha Red
-	colorUpToDate = lipgloss.Color("#a6e3a1") // Mocha Green
-	colorSelected = lipgloss.Color("#1e1e2e")
-	colorSelectedBg = lipgloss.Color("#cba6f7") // Mocha Mauve
+	colorUpToDate = lipgloss.Color("#bac2de") // Mocha Subtext1 (softer)
+	colorSelected = lipgloss.Color("#cba6f7") // Mocha Mauve text
+	colorSelectedBg = lipgloss.Color("#313244") // Mocha Surface0 subtle background
 	colorText     = lipgloss.Color("#cdd6f4")
 	colorSurface  = lipgloss.Color("#313244")
 )
@@ -80,12 +80,14 @@ func (d packageDelegate) Render(w io.Writer, m list.Model, index int, listItem l
 	}
 
 	bg := lipgloss.Color("")
+	bold := false
 	if index == m.Index() {
 		fg = colorSelected
 		bg = colorSelectedBg
+		bold = true
 	}
 
-	style := lipgloss.NewStyle().Foreground(fg).Background(bg)
+	style := lipgloss.NewStyle().Foreground(fg).Background(bg).Bold(bold)
 	
 	// Format strings to exact width using left-alignment and spaces
 	fmt1 := fmt.Sprintf("%%-%ds", col1W)
@@ -118,10 +120,11 @@ func RenderTableHeader(width int) string {
 	}
 
 	s := lipgloss.NewStyle().
-		Foreground(colorText).
+		Foreground(lipgloss.Color("#b4befe")). // Mocha Sapphire
+		Bold(true).
 		Border(lipgloss.NormalBorder(), false, false, true, false).
-		BorderForeground(colorSurface).
-		PaddingBottom(1)
+		BorderForeground(lipgloss.Color("#585b70")). // Mocha Surface2
+		PaddingBottom(0)
 	
 	fmt1 := fmt.Sprintf("%%-%ds", col1W)
 	fmt2 := fmt.Sprintf("%%-%ds", col2W)
@@ -129,11 +132,11 @@ func RenderTableHeader(width int) string {
 	fmt4 := fmt.Sprintf("%%-%ds", col4W)
 	fmt5 := fmt.Sprintf("%%-%ds", col5W)
 
-	col1 := fmt.Sprintf(fmt1, "Package")
-	col2 := fmt.Sprintf(fmt2, "Description")
-	col3 := fmt.Sprintf(fmt3, "Version")
-	col4 := fmt.Sprintf(fmt4, "Latest")
-	col5 := fmt.Sprintf(fmt5, "Type")
+	col1 := fmt.Sprintf(fmt1, "PACKAGE")
+	col2 := fmt.Sprintf(fmt2, "DESCRIPTION")
+	col3 := fmt.Sprintf(fmt3, "VERSION")
+	col4 := fmt.Sprintf(fmt4, "LATEST")
+	col5 := fmt.Sprintf(fmt5, "TYPE")
 
 	row := fmt.Sprintf("%s %s %s %s %s", col1, col2, col3, col4, col5)
 	return s.Render(runewidth.FillRight(row, width))

@@ -95,7 +95,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.pkgTable = components.NewPackageTable(m.pkgs, m.width, m.height-12)
+		m.pkgTable = components.NewPackageTable(m.pkgs, m.width, m.height-16)
 		m.search, _ = m.search.Update(msg)
 
 	case logMsg:
@@ -217,12 +217,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func RenderGradientBruh() string {
 	ascii := []string{
-		`  ____                  _     `,
-		` |  _ \                | |    `,
-		` | |_) | _ __  _   _   | |__  `,
-		` |  _ < | '__|| | | |  | '_ \ `,
-		` | |_) || |   | |_| |  | | | |`,
-		` |____/ |_|    \__,_|  |_| |_|`,
+		` ______    _______   __  __    _    _ `,
+		`(  __  \  (  ____ ) (  )(  )  ( \  / )`,
+		`| (  \  ) | (    )| | ||  ||  | (  ) |`,
+		`| |   ) | | (____)| | ||  ||  | (__) |`,
+		`| |   | | |     __) | ||  ||  |  __  |`,
+		`| |   ) | | (\ (    | ||  ||  | (  ) |`,
+		`| (__/  ) | ) \ \__ | \_/ ||  | )  ( |`,
+		`(______/  |/   \__/ \____/    |/    \|`,
 	}
 	colors := []lipgloss.Color{
 		lipgloss.Color("#cba6f7"),
@@ -243,7 +245,8 @@ func RenderGradientBruh() string {
 		}
 		out = append(out, coloredLine)
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, out...) + "\n\n"
+	// Add more padding below the header
+	return lipgloss.JoinVertical(lipgloss.Left, out...) + "\n\n\n"
 }
 
 func (m Model) View() string {
