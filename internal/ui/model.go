@@ -135,9 +135,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "i", "d":
 				if !m.search.InputFocused {
-					cursor := m.search.Results.Index()
-					if cursor >= 0 && cursor < len(m.search.Results.Items()) {
-						item := m.search.Results.Items()[cursor].(components.PackageItem)
+					selected := m.search.Results.SelectedItem()
+					if selected != nil {
+						item := selected.(components.PackageItem)
 						m.progress.Active = true
 						m.progress.Logs = nil
 						m.logChan = make(chan string, 100)
@@ -165,9 +165,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showSearch = true
 				return m, nil
 			case "u", "d", "r":
-				cursor := m.pkgTable.Index()
-				if cursor >= 0 && cursor < len(m.pkgTable.Items()) {
-					item := m.pkgTable.Items()[cursor].(components.PackageItem)
+				selected := m.pkgTable.SelectedItem()
+				if selected != nil {
+					item := selected.(components.PackageItem)
 					name := item.Name
 					m.progress.Active = true
 					m.progress.Logs = nil
