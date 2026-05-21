@@ -12,8 +12,8 @@ import (
 
 func RenderDetails(pkg brew.PackageInfo, width int) string {
 	md := fmt.Sprintf("# %s\n\n", pkg.Name)
-	if pkg.Version != "" {
-		md += fmt.Sprintf("**Version:** %s\n\n", pkg.Version)
+	if pkg.LatestVersion != "" {
+		md += fmt.Sprintf("**Version:** %s\n\n", pkg.LatestVersion)
 	}
 	md += fmt.Sprintf("%s\n\n", pkg.Desc)
 

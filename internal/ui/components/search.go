@@ -2,7 +2,7 @@
 package components
 
 import (
-	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -11,7 +11,8 @@ import (
 
 type SearchModel struct {
 	Input   textinput.Model
-	Results list.Model
+	Results table.Model
+	pkgs    []brew.PackageInfo
 	width   int
 	height  int
 }
@@ -23,12 +24,9 @@ func NewSearchModel(width, height int) SearchModel {
 	ti.CharLimit = 156
 	ti.Width = 50
 
-	l := NewList(nil, width, height-3)
-	l.Title = "Results"
-
 	return SearchModel{
 		Input:   ti,
-		Results: l,
+		Results: NewPackageTable(nil, width, height-3),
 		width:   width,
 		height:  height,
 	}
@@ -53,7 +51,7 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.Results.SetSize(msg.Width, msg.Height-3)
+		m.Results = NewPackageTable(m.pkgs, m.width, m.height-3)
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
@@ -65,8 +63,8 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 			m.Input.Focus()
 		}
 	case SearchResultsMsg:
-		m.Results = NewList(msg, m.width, m.height-3)
-		m.Results.Title = "Results for: " + m.Input.Value()
+		m.pkgs = msg
+		m.Results = NewPackageTable(msg, m.width, m.height-3)
 	}
 
 	if m.Input.Focused() {
@@ -83,6 +81,6 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 func (m SearchModel) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left,
 		lipgloss.NewStyle().Padding(1, 2).Render(m.Input.View()),
-		m.Results.View(),
+		lipgloss.NewStyle().Padding(1, 2).Render(m.Results.View()),
 	)
 }

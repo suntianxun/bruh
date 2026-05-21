@@ -93,6 +93,28 @@ func Uninstall(name string, isCask bool) error {
 	return cmd.Run()
 }
 
+func Upgrade(name string, isCask bool) error {
+	args := []string{"upgrade"}
+	if isCask {
+		args = append(args, "--cask")
+	}
+	args = append(args, name)
+	
+	cmd := exec.Command("brew", args...)
+	return cmd.Run()
+}
+
+func Reinstall(name string, isCask bool) error {
+	args := []string{"reinstall"}
+	if isCask {
+		args = append(args, "--cask")
+	}
+	args = append(args, name)
+	
+	cmd := exec.Command("brew", args...)
+	return cmd.Run()
+}
+
 func GetOutdated() ([]PackageInfo, error) {
 	cmd := exec.Command("brew", "outdated", "--json=v2")
 	out, err := cmd.Output()
