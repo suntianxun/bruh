@@ -7,6 +7,11 @@ import (
 	"github.com/user/brew-tui/internal/brew"
 )
 
+var (
+	colorOutdated = lipgloss.NewStyle().Foreground(lipgloss.Color("#f38ba8")) // Mocha Red
+	colorUpToDate = lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1")) // Mocha Green
+)
+
 func NewPackageTable(pkgs []brew.PackageInfo, width, height int) table.Model {
 	columns := []table.Column{
 		{Title: "Package", Width: 25},
@@ -43,12 +48,17 @@ func NewPackageTable(pkgs []brew.PackageInfo, width, height int) table.Model {
 			latest = "-"
 		}
 
+		style := colorUpToDate
+		if p.IsOutdated {
+			style = colorOutdated
+		}
+
 		rows = append(rows, table.Row{
-			p.Name,
-			desc,
-			installed,
-			latest,
-			pkgType,
+			style.Render(p.Name),
+			style.Render(desc),
+			style.Render(installed),
+			style.Render(latest),
+			style.Render(pkgType),
 		})
 	}
 
