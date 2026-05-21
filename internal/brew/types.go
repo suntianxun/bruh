@@ -6,22 +6,24 @@ import (
 )
 
 type PackageInfo struct {
-	Name         string `json:"-"` // We'll handle this specially
-	Desc         string `json:"desc"`
-	Version      string `json:"-"` // We'll handle this specially
-	IsCask       bool
-	Dependencies []string `json:"dependencies,omitempty"`
+	Name           string   `json:"-"`
+	Desc           string   `json:"desc"`
+	CurrentVersion string   `json:"-"`
+	LatestVersion  string   `json:"-"`
+	IsOutdated     bool     `json:"-"`
+	IsCask         bool     `json:"-"`
+	Dependencies   []string `json:"dependencies,omitempty"`
 }
 
-// Casks have name as an array of strings
 type rawCask struct {
-	Token   string   `json:"token"`
-	Name    []string `json:"name"`
-	Desc    string   `json:"desc"`
-	Version string   `json:"version"`
+	Token     string   `json:"token"`
+	Name      []string `json:"name"`
+	Desc      string   `json:"desc"`
+	Version   string   `json:"version"`
+	Installed string   `json:"installed"`
+	Outdated  bool     `json:"outdated"`
 }
 
-// Formulae have name as a string, and version is nested
 type rawFormula struct {
 	Name         string `json:"name"`
 	Desc         string `json:"desc"`
@@ -29,6 +31,10 @@ type rawFormula struct {
 	Versions     struct {
 		Stable string `json:"stable"`
 	} `json:"versions"`
+	Installed []struct {
+		Version string `json:"version"`
+	} `json:"installed"`
+	Outdated bool `json:"outdated"`
 }
 
 type rawBrewJSONV2 struct {
@@ -43,25 +49,30 @@ func (b *BrewJSONV2) UnmarshalJSON(data []byte) error {
 	}
 
 	for _, f := range raw.Formulae {
+		current := ""
+		if len(f.Installed) > 0 {
+			current = f.Installed[0].Version
+		}
 		b.Formulae = append(b.Formulae, PackageInfo{
-			Name:         f.Name,
-			Desc:         f.Desc,
-			Version:      f.Versions.Stable,
-			IsCask:       false,
-			Dependencies: f.Dependencies,
+			Name:           f.Name,
+			Desc:           f.Desc,
+			CurrentVersion: current,
+			LatestVersion:  f.Versions.Stable,
+			IsOutdated:     f.Outdated,
+			IsCask:         false,
+			Dependencies:   f.Dependencies,
 		})
 	}
 
 	for _, c := range raw.Casks {
 		name := c.Token
-		if len(c.Name) > 0 {
-			name = c.Name[0]
-		}
 		b.Casks = append(b.Casks, PackageInfo{
-			Name:    name,
-			Desc:    c.Desc,
-			Version: c.Version,
-			IsCask:  true,
+			Name:           name,
+			Desc:           c.Desc,
+			CurrentVersion: c.Installed,
+			LatestVersion:  c.Version,
+			IsOutdated:     c.Outdated,
+			IsCask:         true,
 		})
 	}
 

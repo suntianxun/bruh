@@ -13,7 +13,7 @@ import (
 )
 
 type logMsg string
-type actionDoneMsg error
+type actionDoneMsg struct{ err error }
 
 func waitForLog(c chan string) tea.Cmd {
 	return func() tea.Msg {
@@ -77,7 +77,7 @@ func brewActionCmd(action string, name string, isCask bool, c chan string) tea.C
 		}
 		
 		close(c)
-		return actionDoneMsg(err)
+		return actionDoneMsg{err}
 	}
 }
 
@@ -106,8 +106,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan))
 
 	case actionDoneMsg:
-		if msg != nil { // an error occurred
-			m.progress.Message = "Error: " + msg.Error()
+		if msg.err != nil { // an error occurred
+			m.progress.Message = "Error: " + msg.err.Error()
 			m.progress.Active = false
 		} else {
 			m.progress.Message = "Reloading packages..."
