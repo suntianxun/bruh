@@ -2,7 +2,7 @@
 package components
 
 import (
-	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -11,7 +11,7 @@ import (
 
 type SearchModel struct {
 	Input   textinput.Model
-	Results table.Model
+	Results list.Model
 	pkgs    []brew.PackageInfo
 	width   int
 	height  int
@@ -26,7 +26,7 @@ func NewSearchModel(width, height int) SearchModel {
 
 	return SearchModel{
 		Input:   ti,
-		Results: NewPackageTable(nil, width, height-3),
+		Results: NewPackageTable(nil, width, height-4),
 		width:   width,
 		height:  height,
 	}
@@ -51,7 +51,7 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.Results = NewPackageTable(m.pkgs, m.width, m.height-3)
+		m.Results = NewPackageTable(m.pkgs, m.width, m.height-4)
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
@@ -64,7 +64,7 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 		}
 	case SearchResultsMsg:
 		m.pkgs = msg
-		m.Results = NewPackageTable(msg, m.width, m.height-3)
+		m.Results = NewPackageTable(msg, m.width, m.height-4)
 	}
 
 	if m.Input.Focused() {
@@ -79,8 +79,10 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 }
 
 func (m SearchModel) View() string {
+	tableHeader := RenderTableHeader(m.width)
 	return lipgloss.JoinVertical(lipgloss.Left,
 		lipgloss.NewStyle().Padding(1, 2).Render(m.Input.View()),
-		lipgloss.NewStyle().Padding(1, 2).Render(m.Results.View()),
+		tableHeader,
+		m.Results.View(),
 	)
 }

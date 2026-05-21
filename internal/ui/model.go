@@ -1,11 +1,10 @@
-// internal/ui/model.go
 package ui
 
 import (
 	"fmt"
 	"sort"
 
-	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/user/brew-tui/internal/brew"
@@ -21,7 +20,7 @@ const (
 
 type Model struct {
 	tab          activeTab
-	pkgTable     table.Model
+	pkgTable     list.Model
 	pkgs         []brew.PackageInfo
 	search       components.SearchModel
 	progress     components.ProgressModel
@@ -117,7 +116,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "u", "d", "r":
 			if m.tab == tabInstalled {
-				cursor := m.pkgTable.Cursor()
+				cursor := m.pkgTable.Index()
 				if cursor >= 0 && cursor < len(m.pkgs) {
 					pkg := m.pkgs[cursor]
 					name := pkg.Name
@@ -144,7 +143,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return sorted[i].IsOutdated // true (outdated) comes before false
 		})
 		m.pkgs = sorted
-		m.pkgTable = components.NewPackageTable(sorted, m.width, m.height-6)
+		m.pkgTable = components.NewPackageTable(sorted, m.width, m.height-8) // -8 for header + table header
 	case errMsg:
 		m.progress.Active = false
 		m.progress.Message = "Error: " + msg.Error()
@@ -184,7 +183,8 @@ func (m Model) View() string {
 	} else {
 		switch m.tab {
 		case tabInstalled:
-			mainContent = lipgloss.NewStyle().Padding(1, 2).Render(m.pkgTable.View())
+			tableHeader := components.RenderTableHeader(m.width)
+			mainContent = lipgloss.JoinVertical(lipgloss.Left, tableHeader, m.pkgTable.View())
 		case tabSearch:
 			mainContent = m.search.View()
 		}
