@@ -70,3 +70,49 @@ func Search(query string) ([]PackageInfo, error) {
 	}
 	return results, nil
 }
+
+func Install(name string, isCask bool) error {
+	args := []string{"install"}
+	if isCask {
+		args = append(args, "--cask")
+	}
+	args = append(args, name)
+	
+	cmd := exec.Command("brew", args...)
+	return cmd.Run()
+}
+
+func Uninstall(name string, isCask bool) error {
+	args := []string{"uninstall"}
+	if isCask {
+		args = append(args, "--cask")
+	}
+	args = append(args, name)
+	
+	cmd := exec.Command("brew", args...)
+	return cmd.Run()
+}
+
+func GetOutdated() ([]PackageInfo, error) {
+	cmd := exec.Command("brew", "outdated", "--json=v2")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var parsed BrewJSONV2
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		return nil, err
+	}
+
+	var all []PackageInfo
+	for _, f := range parsed.Formulae {
+		f.IsCask = false
+		all = append(all, f)
+	}
+	for _, c := range parsed.Casks {
+		c.IsCask = true
+		all = append(all, c)
+	}
+	return all, nil
+}
