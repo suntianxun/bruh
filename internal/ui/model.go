@@ -3,10 +3,13 @@ package ui
 
 import (
 	"fmt"
+	"math"
 	"sort"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/harmonica"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/user/brew-tui/internal/brew"
 	"github.com/user/brew-tui/internal/ui/components"
@@ -34,6 +37,11 @@ type Model struct {
 	logChan    chan string
 	width      int
 	height     int
+
+	animatingHeader bool
+	spring          harmonica.Spring
+	headerPos       float64
+	headerVel       float64
 }
 
 func InitialModel() Model {
@@ -41,14 +49,25 @@ func InitialModel() Model {
 	prog.Active = true
 	prog.Message = "Loading packages..."
 	return Model{
-		pkgTable: components.NewPackageTable(nil, 80, 10),
-		search:   components.NewSearchModel(80, 10),
-		progress: prog,
+		pkgTable:        components.NewPackageTable(nil, 80, 10, false),
+		search:          components.NewSearchModel(80, 10),
+		progress:        prog,
+		animatingHeader: true,
+		spring:          harmonica.NewSpring(harmonica.FPS(60), 6.0, 0.4),
+		headerPos:       -20.0,
+		headerVel:       0.0,
 	}
 }
 
 type pkgsLoadedMsg []brew.PackageInfo
 type errMsg error
+type frameMsg time.Time
+
+func animateCmd() tea.Cmd {
+	return tea.Tick(time.Second/60, func(t time.Time) tea.Msg {
+		return frameMsg(t)
+	})
+}
 
 func fetchInstalledCmd() tea.Cmd {
 	return tea.Batch(
@@ -82,7 +101,7 @@ func brewActionCmd(action string, name string, isCask bool, c chan string) tea.C
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(components.NewProgressModel().Spinner.Tick, fetchInstalledCmd())
+	return tea.Batch(components.NewProgressModel().Spinner.Tick, fetchInstalledCmd(), animateCmd())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -93,9 +112,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 
 	switch msg := msg.(type) {
+	case frameMsg:
+		if m.animatingHeader {
+			m.headerPos, m.headerVel = m.spring.Update(m.headerPos, m.headerVel, 0)
+			if math.Abs(m.headerPos) < 0.1 && math.Abs(m.headerVel) < 0.1 {
+				m.headerPos = 0
+				m.animatingHeader = false
+			} else {
+				cmds = append(cmds, animateCmd())
+			}
+		}
+
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.pkgTable = components.NewPackageTable(m.pkgs, m.width, m.height-16)
+		m.pkgTable = components.NewPackageTable(m.pkgs, m.width, m.height-16, false)
 		m.search, _ = m.search.Update(msg)
 
 	case logMsg:
@@ -196,7 +226,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return sorted[i].IsOutdated // true (outdated) comes before false
 		})
 		m.pkgs = sorted
-		m.pkgTable = components.NewPackageTable(sorted, m.width, m.height-12)
+		m.pkgTable = components.NewPackageTable(sorted, m.width, m.height-12, false)
 	case errMsg:
 		m.progress.Active = false
 		m.progress.Message = "Error: " + msg.Error()
@@ -215,14 +245,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func RenderGradientBruh() string {
+func RenderGradientBruh(pos float64) string {
 	ascii := []string{
-		`  ____                  _     `,
-		` |  _ \                | |    `,
-		` | |_) | _ __  _   _   | |__  `,
-		` |  _ < | '__|| | | |  | '_ \ `,
-		` | |_) || |   | |_| |  | | | |`,
-		` |____/ |_|    \__,_|  |_| |_|`,
+		` _______  _______  __   __  __   __ `,
+		`|  _    ||       ||  | |  ||  | |  |`,
+		`| |_|   ||   _   ||  | |  ||  |_|  |`,
+		`|       ||  | |  ||  |_|  ||       |`,
+		`|  _   | |  |_|  ||       ||       |`,
+		`| |_|   ||       ||       ||   _   |`,
+		`|_______||_______||_______||__| |__|`,
 	}
 	colors := []lipgloss.Color{
 		lipgloss.Color("#cba6f7"),
@@ -232,6 +263,17 @@ func RenderGradientBruh() string {
 	}
 
 	var out []string
+	
+	offset := int(math.Round(pos))
+	if offset < 0 {
+		drop := -offset
+		if drop >= len(ascii) {
+			return ""
+		}
+		ascii = ascii[drop:]
+		offset = 0
+	}
+
 	for _, line := range ascii {
 		var coloredLine string
 		for i, c := range line {
@@ -243,8 +285,13 @@ func RenderGradientBruh() string {
 		}
 		out = append(out, coloredLine)
 	}
-	// Add more padding below the header
-	return lipgloss.JoinVertical(lipgloss.Left, out...) + "\n\n\n"
+
+	rendered := lipgloss.JoinVertical(lipgloss.Left, out...)
+	if offset > 0 {
+		rendered = lipgloss.NewStyle().PaddingTop(offset).Render(rendered)
+	}
+
+	return rendered + "\n\n\n"
 }
 
 func (m Model) View() string {
@@ -253,7 +300,7 @@ func (m Model) View() string {
 		return searchView
 	}
 
-	header := RenderGradientBruh()
+	header := RenderGradientBruh(m.headerPos)
 	
 	var mainContent string
 	if m.progress.Active {
