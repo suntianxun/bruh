@@ -36,7 +36,7 @@ func NewSearchModel(width, height int) SearchModel {
 
 	return SearchModel{
 		Input:        ti,
-		Results:      NewPackageTable(nil, boxWidth-6, boxHeight-7),
+		Results:      NewPackageTable(nil, boxWidth-6, boxHeight-7, true),
 		InputFocused: true,
 		Progress:     prog,
 		width:        width,
@@ -100,7 +100,7 @@ func (m SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 	case SearchResultsMsg:
 		m.Progress.Active = false
 		m.pkgs = msg
-		m.Results = NewPackageTable(msg, boxWidth-6, boxHeight-7)
+		m.Results = NewPackageTable(msg, boxWidth-6, boxHeight-7, true)
 	case error:
 		m.Progress.Active = false
 	}
