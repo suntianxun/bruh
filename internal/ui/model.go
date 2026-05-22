@@ -247,13 +247,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func RenderGradientBruh(pos float64) string {
 	ascii := []string{
-		` _______  _______  __   __  __   __ `,
-		`|  _    ||       ||  | |  ||  | |  |`,
-		`| |_|   ||   _   ||  | |  ||  |_|  |`,
-		`|       ||  | |  ||  |_|  ||       |`,
-		`|  _   | |  |_|  ||       ||       |`,
-		`| |_|   ||       ||       ||   _   |`,
-		`|_______||_______||_______||__| |__|`,
+		`█▀▀▀▄ █▀▀▀▄ █   █ █   █`,
+		`█▀▀▀▄ █▀▀▀▄ █   █ █▀▀▀█`,
+		`▀▀▀▀  ▀   ▀  ▀▀▀  ▀   ▀`,
 	}
 	colors := []lipgloss.Color{
 		lipgloss.Color("#cba6f7"),
