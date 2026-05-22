@@ -2,7 +2,7 @@
 
 A beautiful, animated, and highly functional Terminal User Interface (TUI) for managing your Homebrew packages. Built with Go and the [Charm](https://charm.sh) ecosystem.
 
-![Bruh TUI](https://github.com/user-attachments/assets/15fc3f63-3806-4d51-a2b1-5e8245594b2f)
+![Bruh TUI](https://github.com/suntianxun/bruh/blob/main/internal/ui/components/bruh_logo.png)
 
 ## Features
 
