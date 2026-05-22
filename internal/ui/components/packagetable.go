@@ -4,6 +4,7 @@ package components
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -72,21 +73,26 @@ func (d packageDelegate) Render(w io.Writer, m list.Model, index int, listItem l
 	lat := runewidth.Truncate(latest, col4W, "…")
 	ptype := runewidth.Truncate(pkgType, col5W, "…")
 
-	var fg lipgloss.Color
-	var bg lipgloss.Color
+	var fg lipgloss.Color = colorText
+	if i.CurrentVersion != "" {
+		fg = colorUpToDate
+		if d.isSearch {
+			fg = lipgloss.Color("#a6e3a1") // Mocha Green
+		}
+		if i.IsOutdated {
+			fg = colorOutdated
+		}
+	} else if i.IsOutdated {
+		fg = colorOutdated
+	}
+
+	bg := lipgloss.Color("")
 	bold := false
-	useGradient := false
 
 	if index == m.Index() {
 		fg = colorSelected
 		bg = colorSelectedBg
 		bold = true
-	} else if d.isSearch && i.CurrentVersion != "" {
-		fg = lipgloss.Color("#a6e3a1") // Mocha Green
-	} else if i.IsOutdated {
-		fg = colorOutdated
-	} else {
-		useGradient = true
 	}
 
 	// Format strings to exact width using left-alignment and spaces
@@ -105,12 +111,7 @@ func (d packageDelegate) Render(w io.Writer, m list.Model, index int, listItem l
 	row := fmt.Sprintf("%s %s %s %s %s", col1, col2, col3, col4, col5)
 	row = runewidth.FillRight(row, d.width)
 
-	var fullRow string
-	if useGradient {
-		fullRow = applyGradient(row, bold, bg)
-	} else {
-		fullRow = lipgloss.NewStyle().Foreground(fg).Background(bg).Bold(bold).Render(row)
-	}
+	fullRow := lipgloss.NewStyle().Foreground(fg).Background(bg).Bold(bold).Render(row)
 	
 	fmt.Fprint(w, fullRow)
 }
@@ -155,22 +156,44 @@ func RenderTableHeader(width int) string {
 	fmt4 := fmt.Sprintf("%%-%ds", col4W)
 	fmt5 := fmt.Sprintf("%%-%ds", col5W)
 
-	col1 := fmt.Sprintf(fmt1, "Package")
-	col2 := fmt.Sprintf(fmt2, "Description")
-	col3 := fmt.Sprintf(fmt3, "Version")
-	col4 := fmt.Sprintf(fmt4, "Latest")
-	col5 := fmt.Sprintf(fmt5, "Type")
+	col1 := fmt.Sprintf(fmt1, applyGradient("Package", true, ""))
+	col2 := fmt.Sprintf(fmt2, applyGradient("Description", true, ""))
+	col3 := fmt.Sprintf(fmt3, applyGradient("Version", true, ""))
+	col4 := fmt.Sprintf(fmt4, applyGradient("Latest", true, ""))
+	col5 := fmt.Sprintf(fmt5, applyGradient("Type", true, ""))
+
+	// When using sprintf with lipgloss styled strings, the length calculations get messed up 
+	// by the ANSI escape codes. Instead, we'll pad the strings correctly without ansi codes,
+	// and then apply the gradient to just the words.
+
+	col1Padded := runewidth.FillRight("Package", col1W)
+	col2Padded := runewidth.FillRight("Description", col2W)
+	col3Padded := runewidth.FillRight("Version", col3W)
+	col4Padded := runewidth.FillRight("Latest", col4W)
+	col5Padded := runewidth.FillRight("Type", col5W)
+	
+	// Apply gradient to the text, then append the spaces
+	col1 = applyGradient("Package", true, "") + col1Padded[len("Package"):]
+	col2 = applyGradient("Description", true, "") + col2Padded[len("Description"):]
+	col3 = applyGradient("Version", true, "") + col3Padded[len("Version"):]
+	col4 = applyGradient("Latest", true, "") + col4Padded[len("Latest"):]
+	col5 = applyGradient("Type", true, "") + col5Padded[len("Type"):]
 
 	rowText := fmt.Sprintf("%s %s %s %s %s", col1, col2, col3, col4, col5)
-	rowText = runewidth.FillRight(rowText, width)
-
-	coloredRow := applyGradient(rowText, true, "")
+	
+	// We can't use FillRight on rowText directly because it contains ansi codes.
+	// Since we padded each column exactly, we just need to ensure the total width.
+	// The total visible length should be col1W + col2W + col3W + col4W + col5W + 4 spaces
+	visibleLen := col1W + col2W + col3W + col4W + col5W + 4
+	if visibleLen < width {
+		rowText += strings.Repeat(" ", width-visibleLen)
+	}
 
 	return lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), false, false, true, false).
 		BorderForeground(lipgloss.Color("#585b70")). // Mocha Surface2
 		PaddingBottom(0).
-		Render(coloredRow)
+		Render(rowText)
 }
 
 func NewPackageTable(pkgs []brew.PackageInfo, width, height int, isSearch bool) list.Model {
