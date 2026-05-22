@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -42,6 +43,7 @@ type Model struct {
 	spring          harmonica.Spring
 	headerPos       float64
 	headerVel       float64
+	ticks           int
 }
 
 func InitialModel() Model {
@@ -53,9 +55,10 @@ func InitialModel() Model {
 		search:          components.NewSearchModel(80, 10),
 		progress:        prog,
 		animatingHeader: true,
-		spring:          harmonica.NewSpring(harmonica.FPS(60), 6.0, 0.4),
-		headerPos:       -20.0,
+		spring:          harmonica.NewSpring(harmonica.FPS(60), 6.0, 0.15),
+		headerPos:       30.0,
 		headerVel:       0.0,
+		ticks:           0,
 	}
 }
 
@@ -113,15 +116,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case frameMsg:
+		m.ticks++
 		if m.animatingHeader {
 			m.headerPos, m.headerVel = m.spring.Update(m.headerPos, m.headerVel, 0)
 			if math.Abs(m.headerPos) < 0.1 && math.Abs(m.headerVel) < 0.1 {
 				m.headerPos = 0
 				m.animatingHeader = false
-			} else {
-				cmds = append(cmds, animateCmd())
 			}
 		}
+		cmds = append(cmds, animateCmd())
 
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
@@ -245,7 +248,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func RenderGradientBruh(pos float64) string {
+func RenderGradientBruh(pos float64, ticks int) string {
 	ascii := []string{
 		`█▀▀▀▄ █▀▀▀▄ █   █ █   █`,
 		`█▀▀▀▄ █▀▀▀▄ █   █ █▀▀▀█`,
@@ -260,15 +263,12 @@ func RenderGradientBruh(pos float64) string {
 
 	var out []string
 	
-	offset := int(math.Round(pos))
-	if offset < 0 {
-		drop := -offset
-		if drop >= len(ascii) {
-			return ""
-		}
-		ascii = ascii[drop:]
-		offset = 0
+	padCount := int(math.Round(pos))
+	if padCount < -10 {
+		padCount = -10
 	}
+	padStr := strings.Repeat(" ", 10 + padCount)
+	sweep := (ticks % 120)
 
 	for _, line := range ascii {
 		var coloredLine string
@@ -277,15 +277,26 @@ func RenderGradientBruh(pos float64) string {
 			if colorIdx >= len(colors) {
 				colorIdx = len(colors) - 1
 			}
-			coloredLine += lipgloss.NewStyle().Foreground(colors[colorIdx]).Bold(true).Render(string(c))
+			
+			fg := colors[colorIdx]
+			
+			// Color sweep logic
+			sweepPos := float64(sweep) / 2.0
+			dist := math.Abs(float64(i) - sweepPos)
+			if dist < 3.0 {
+				if dist < 1.0 {
+					fg = lipgloss.Color("#ffffff")
+				} else if dist < 2.0 {
+					fg = lipgloss.Color("#f9e2af")
+				}
+			}
+
+			coloredLine += lipgloss.NewStyle().Foreground(fg).Bold(true).Render(string(c))
 		}
-		out = append(out, coloredLine)
+		out = append(out, padStr + coloredLine)
 	}
 
 	rendered := lipgloss.JoinVertical(lipgloss.Left, out...)
-	if offset > 0 {
-		rendered = lipgloss.NewStyle().PaddingTop(offset).Render(rendered)
-	}
 
 	return rendered + "\n\n\n"
 }
@@ -296,7 +307,7 @@ func (m Model) View() string {
 		return searchView
 	}
 
-	header := RenderGradientBruh(m.headerPos)
+	header := RenderGradientBruh(m.headerPos, m.ticks)
 	
 	var mainContent string
 	if m.progress.Active {
