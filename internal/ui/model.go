@@ -55,8 +55,8 @@ func InitialModel() Model {
 		search:          components.NewSearchModel(80, 10),
 		progress:        prog,
 		animatingHeader: true,
-		spring:          harmonica.NewSpring(harmonica.FPS(60), 6.0, 0.15),
-		headerPos:       30.0,
+		spring:          harmonica.NewSpring(harmonica.FPS(60), 4.0, 1.0), // Critically damped, no bouncing
+		headerPos:       40.0,
 		headerVel:       0.0,
 		ticks:           0,
 	}
