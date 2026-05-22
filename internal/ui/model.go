@@ -297,6 +297,9 @@ func RenderGradientBruh(pos float64, ticks int) string {
 	}
 
 	rendered := lipgloss.JoinVertical(lipgloss.Left, out...)
+	
+	// Add padding to the top to distance it from the terminal edge
+	rendered = lipgloss.NewStyle().PaddingTop(2).Render(rendered)
 
 	return rendered + "\n\n\n"
 }
