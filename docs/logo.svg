@@ -1,8 +1,47 @@
-<svg width="400" height="120" xmlns="http://www.w3.org/2000/svg">
-	<rect width="100%" height="100%" fill="#1e1e2e"/>
-	<g font-family="monospace" font-size="20" font-weight="bold" letter-spacing="0">
-		<text y="40" xml:space="preserve"><tspan x="40" fill="#cba6f7">█</tspan><tspan x="76" fill="#cba6f7">▀</tspan><tspan x="112" fill="#cba6f7">▀</tspan><tspan x="148" fill="#cba6f7">▀</tspan><tspan x="184" fill="#cba6f7">▄</tspan><tspan x="220" fill="#f5c2e7">&#160;</tspan><tspan x="232" fill="#f5c2e7">█</tspan><tspan x="268" fill="#f5c2e7">▀</tspan><tspan x="304" fill="#f5c2e7">▀</tspan><tspan x="340" fill="#f5c2e7">▀</tspan><tspan x="376" fill="#f2cdcd">▄</tspan><tspan x="412" fill="#f2cdcd">&#160;</tspan><tspan x="424" fill="#f2cdcd">█</tspan><tspan x="460" fill="#f2cdcd">&#160;</tspan><tspan x="472" fill="#f2cdcd">&#160;</tspan><tspan x="484" fill="#f2cdcd">&#160;</tspan><tspan x="496" fill="#f2cdcd">█</tspan><tspan x="532" fill="#f5e0dc">&#160;</tspan><tspan x="544" fill="#f5e0dc">█</tspan><tspan x="580" fill="#f5e0dc">&#160;</tspan><tspan x="592" fill="#f5e0dc">&#160;</tspan><tspan x="604" fill="#f5e0dc">&#160;</tspan><tspan x="616" fill="#f5e0dc">█</tspan></text>
-		<text y="64" xml:space="preserve"><tspan x="40" fill="#cba6f7">█</tspan><tspan x="76" fill="#cba6f7">▀</tspan><tspan x="112" fill="#cba6f7">▀</tspan><tspan x="148" fill="#cba6f7">▀</tspan><tspan x="184" fill="#cba6f7">▄</tspan><tspan x="220" fill="#f5c2e7">&#160;</tspan><tspan x="232" fill="#f5c2e7">█</tspan><tspan x="268" fill="#f5c2e7">▀</tspan><tspan x="304" fill="#f5c2e7">▀</tspan><tspan x="340" fill="#f5c2e7">▀</tspan><tspan x="376" fill="#f5c2e7">▄</tspan><tspan x="412" fill="#f2cdcd">&#160;</tspan><tspan x="424" fill="#f2cdcd">█</tspan><tspan x="460" fill="#f2cdcd">&#160;</tspan><tspan x="472" fill="#f2cdcd">&#160;</tspan><tspan x="484" fill="#f2cdcd">&#160;</tspan><tspan x="496" fill="#f2cdcd">█</tspan><tspan x="532" fill="#f2cdcd">&#160;</tspan><tspan x="544" fill="#f2cdcd">█</tspan><tspan x="580" fill="#f5e0dc">▀</tspan><tspan x="616" fill="#f5e0dc">▀</tspan><tspan x="652" fill="#f5e0dc">▀</tspan><tspan x="688" fill="#f5e0dc">█</tspan></text>
-		<text y="88" xml:space="preserve"><tspan x="40" fill="#cba6f7">▀</tspan><tspan x="76" fill="#cba6f7">▀</tspan><tspan x="112" fill="#cba6f7">▀</tspan><tspan x="148" fill="#cba6f7">▀</tspan><tspan x="184" fill="#f5c2e7">&#160;</tspan><tspan x="196" fill="#f5c2e7">&#160;</tspan><tspan x="208" fill="#f5c2e7">▀</tspan><tspan x="244" fill="#f5c2e7">&#160;</tspan><tspan x="256" fill="#f5c2e7">&#160;</tspan><tspan x="268" fill="#f5c2e7">&#160;</tspan><tspan x="280" fill="#f5c2e7">▀</tspan><tspan x="316" fill="#f2cdcd">&#160;</tspan><tspan x="328" fill="#f2cdcd">&#160;</tspan><tspan x="340" fill="#f2cdcd">▀</tspan><tspan x="376" fill="#f2cdcd">▀</tspan><tspan x="412" fill="#f2cdcd">▀</tspan><tspan x="448" fill="#f5e0dc">&#160;</tspan><tspan x="460" fill="#f5e0dc">&#160;</tspan><tspan x="472" fill="#f5e0dc">▀</tspan><tspan x="508" fill="#f5e0dc">&#160;</tspan><tspan x="520" fill="#f5e0dc">&#160;</tspan><tspan x="532" fill="#f5e0dc">&#160;</tspan><tspan x="544" fill="#f5e0dc">▀</tspan></text>
+<svg width="692" height="152" xmlns="http://www.w3.org/2000/svg">
+	<rect width="100%" height="100%" fill="#1e1e2e" rx="10"/>
+	<g>
+		<rect x="40" y="40" width="12" height="24" fill="#cba6f7" />
+		<rect x="76" y="40" width="12" height="12" fill="#cba6f7" />
+		<rect x="112" y="40" width="12" height="12" fill="#cba6f7" />
+		<rect x="148" y="40" width="12" height="12" fill="#cba6f7" />
+		<rect x="184" y="52" width="12" height="12" fill="#cba6f7" />
+		<rect x="232" y="40" width="12" height="24" fill="#f5c2e7" />
+		<rect x="268" y="40" width="12" height="12" fill="#f5c2e7" />
+		<rect x="304" y="40" width="12" height="12" fill="#f5c2e7" />
+		<rect x="340" y="40" width="12" height="12" fill="#f5c2e7" />
+		<rect x="376" y="52" width="12" height="12" fill="#f2cdcd" />
+		<rect x="424" y="40" width="12" height="24" fill="#f2cdcd" />
+		<rect x="496" y="40" width="12" height="24" fill="#f2cdcd" />
+		<rect x="544" y="40" width="12" height="24" fill="#f5e0dc" />
+		<rect x="616" y="40" width="12" height="24" fill="#f5e0dc" />
+		<rect x="40" y="64" width="12" height="24" fill="#cba6f7" />
+		<rect x="76" y="64" width="12" height="12" fill="#cba6f7" />
+		<rect x="112" y="64" width="12" height="12" fill="#cba6f7" />
+		<rect x="148" y="64" width="12" height="12" fill="#cba6f7" />
+		<rect x="184" y="76" width="12" height="12" fill="#cba6f7" />
+		<rect x="232" y="64" width="12" height="24" fill="#f5c2e7" />
+		<rect x="268" y="64" width="12" height="12" fill="#f5c2e7" />
+		<rect x="304" y="64" width="12" height="12" fill="#f5c2e7" />
+		<rect x="340" y="64" width="12" height="12" fill="#f5c2e7" />
+		<rect x="376" y="76" width="12" height="12" fill="#f5c2e7" />
+		<rect x="424" y="64" width="12" height="24" fill="#f2cdcd" />
+		<rect x="496" y="64" width="12" height="24" fill="#f2cdcd" />
+		<rect x="544" y="64" width="12" height="24" fill="#f2cdcd" />
+		<rect x="580" y="64" width="12" height="12" fill="#f5e0dc" />
+		<rect x="616" y="64" width="12" height="12" fill="#f5e0dc" />
+		<rect x="652" y="64" width="12" height="12" fill="#f5e0dc" />
+		<rect x="688" y="64" width="12" height="24" fill="#f5e0dc" />
+		<rect x="40" y="88" width="12" height="12" fill="#cba6f7" />
+		<rect x="76" y="88" width="12" height="12" fill="#cba6f7" />
+		<rect x="112" y="88" width="12" height="12" fill="#cba6f7" />
+		<rect x="148" y="88" width="12" height="12" fill="#cba6f7" />
+		<rect x="208" y="88" width="12" height="12" fill="#f5c2e7" />
+		<rect x="280" y="88" width="12" height="12" fill="#f5c2e7" />
+		<rect x="340" y="88" width="12" height="12" fill="#f2cdcd" />
+		<rect x="376" y="88" width="12" height="12" fill="#f2cdcd" />
+		<rect x="412" y="88" width="12" height="12" fill="#f2cdcd" />
+		<rect x="472" y="88" width="12" height="12" fill="#f5e0dc" />
+		<rect x="544" y="88" width="12" height="12" fill="#f5e0dc" />
 	</g>
 </svg>
