@@ -96,6 +96,8 @@ func brewActionCmd(action string, name string, isCask bool, c chan string) tea.C
 			err = brew.Reinstall(name, isCask, c)
 		case "install":
 			err = brew.Install(name, isCask, c)
+		case "upgrade_all":
+			err = brew.UpgradeAll(c)
 		}
 		
 		close(c)
@@ -197,6 +199,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "s":
 				m.showSearch = true
 				return m, nil
+			case "a":
+				m.progress.Active = true
+				m.progress.Logs = nil
+				m.logChan = make(chan string, 100)
+				m.progress.Message = "upgrading all packages..."
+				return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan), brewActionCmd("upgrade_all", "", false, m.logChan))
 			case "u", "d", "r":
 				selected := m.pkgTable.SelectedItem()
 				if selected != nil {
@@ -333,7 +341,7 @@ func (m Model) View() string {
 	statusText := fmt.Sprintf(" Total: %d • Up-to-date: %d • Outdated: %d", total, uptodate, outdated)
 	statusLine := lipgloss.NewStyle().Foreground(lipgloss.Color("#a6adc8")).Padding(0, 1).Render(statusText)
 
-	helpText := " /: filter • s: search remote • u: upgrade • d: uninstall • r: reinstall • q: quit"
+	helpText := " /: filter • s: search remote • a: update all • u: upgrade • d: uninstall • r: reinstall • q: quit"
 	if m.progress.Active {
 		helpText = ""
 	}

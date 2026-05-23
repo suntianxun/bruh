@@ -139,6 +139,11 @@ func Upgrade(name string, isCask bool, outChan chan<- string) error {
 	return RunStreaming(args, outChan)
 }
 
+func UpgradeAll(outChan chan<- string) error {
+	args := []string{"upgrade"}
+	return RunStreaming(args, outChan)
+}
+
 func Reinstall(name string, isCask bool, outChan chan<- string) error {
 	args := []string{"reinstall"}
 	if isCask {
