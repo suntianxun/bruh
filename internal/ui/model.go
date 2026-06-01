@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/harmonica"
 	"github.com/charmbracelet/lipgloss"
@@ -18,6 +19,7 @@ import (
 
 type logMsg string
 type actionDoneMsg struct{ err error }
+type passwordRequestMsg struct{}
 
 func waitForLog(c chan string) tea.Cmd {
 	return func() tea.Msg {
@@ -29,6 +31,16 @@ func waitForLog(c chan string) tea.Cmd {
 	}
 }
 
+func waitForPasswordRequest(c chan struct{}) tea.Cmd {
+	return func() tea.Msg {
+		_, ok := <-c
+		if !ok {
+			return nil
+		}
+		return passwordRequestMsg{}
+	}
+}
+
 type Model struct {
 	pkgTable   list.Model
 	pkgs       []brew.PackageInfo
@@ -36,6 +48,12 @@ type Model struct {
 	showSearch bool
 	progress   components.ProgressModel
 	logChan    chan string
+	
+	askPassChan    chan struct{}
+	answerPassChan chan string
+	passwordInput  textinput.Model
+	askingPassword bool
+
 	width      int
 	height     int
 
@@ -50,10 +68,20 @@ func InitialModel() Model {
 	prog := components.NewProgressModel()
 	prog.Active = true
 	prog.Message = "Loading packages..."
+	
+	ti := textinput.New()
+	ti.Placeholder = "Password"
+	ti.EchoMode = textinput.EchoPassword
+	ti.EchoCharacter = '•'
+	ti.Width = 30
+	
 	return Model{
 		pkgTable:        components.NewPackageTable(nil, 80, 10, false),
 		search:          components.NewSearchModel(80, 10),
 		progress:        prog,
+		askPassChan:     make(chan struct{}),
+		answerPassChan:  make(chan string),
+		passwordInput:   ti,
 		animatingHeader: true,
 		spring:          harmonica.NewSpring(harmonica.FPS(60), 4.0, 1.0), // Critically damped, no bouncing
 		headerPos:       40.0,
@@ -84,20 +112,20 @@ func fetchInstalledCmd() tea.Cmd {
 	)
 }
 
-func brewActionCmd(action string, name string, isCask bool, c chan string) tea.Cmd {
+func brewActionCmd(action string, name string, isCask bool, c chan string, askPass chan struct{}, answerPass chan string) tea.Cmd {
 	return func() tea.Msg {
 		var err error
 		switch action {
 		case "upgrade":
-			err = brew.Upgrade(name, isCask, c)
+			err = brew.Upgrade(name, isCask, c, askPass, answerPass)
 		case "uninstall":
-			err = brew.Uninstall(name, isCask, c)
+			err = brew.Uninstall(name, isCask, c, askPass, answerPass)
 		case "reinstall":
-			err = brew.Reinstall(name, isCask, c)
+			err = brew.Reinstall(name, isCask, c, askPass, answerPass)
 		case "install":
-			err = brew.Install(name, isCask, c)
+			err = brew.Install(name, isCask, c, askPass, answerPass)
 		case "upgrade_all":
-			err = brew.UpgradeAll(c)
+			err = brew.UpgradeAll(c, askPass, answerPass)
 		}
 		
 		close(c)
@@ -150,7 +178,42 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.progress.Spinner.Tick, fetchInstalledCmd())
 		}
 
+	case passwordRequestMsg:
+		m.askingPassword = true
+		m.passwordInput.Focus()
+		return m, textinput.Blink
+
 	case tea.KeyMsg:
+		if m.askingPassword {
+			switch msg.Type {
+			case tea.KeyEnter:
+				m.askingPassword = false
+				pass := m.passwordInput.Value()
+				m.passwordInput.SetValue("")
+				m.passwordInput.Blur()
+				
+				// Send password asynchronously to avoid blocking the UI thread
+				go func() {
+					m.answerPassChan <- pass
+				}()
+				
+				return m, waitForPasswordRequest(m.askPassChan)
+			case tea.KeyEsc, tea.KeyCtrlC:
+				m.askingPassword = false
+				m.passwordInput.SetValue("")
+				m.passwordInput.Blur()
+				
+				go func() {
+					m.answerPassChan <- ""
+				}()
+				
+				return m, tea.Batch(waitForPasswordRequest(m.askPassChan), tea.Quit)
+			}
+			
+			m.passwordInput, cmd = m.passwordInput.Update(msg)
+			return m, cmd
+		}
+
 		if m.progress.Active {
 			switch msg.String() {
 			case "ctrl+c":
@@ -184,7 +247,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.progress.Message = action + "ing " + item.Name + "..."
 						m.showSearch = false // close search on action
 						
-						return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan), brewActionCmd(action, item.Name, item.IsCask, m.logChan))
+						return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan), waitForPasswordRequest(m.askPassChan), brewActionCmd(action, item.Name, item.IsCask, m.logChan, m.askPassChan, m.answerPassChan))
 					}
 				}
 			}
@@ -204,7 +267,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.progress.Logs = nil
 				m.logChan = make(chan string, 100)
 				m.progress.Message = "upgrading all packages..."
-				return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan), brewActionCmd("upgrade_all", "", false, m.logChan))
+				return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan), waitForPasswordRequest(m.askPassChan), brewActionCmd("upgrade_all", "", false, m.logChan, m.askPassChan, m.answerPassChan))
 			case "u", "d", "r":
 				selected := m.pkgTable.SelectedItem()
 				if selected != nil {
@@ -221,7 +284,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						action = "reinstall"
 					}
 					m.progress.Message = action + "ing " + name + "..."
-					return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan), brewActionCmd(action, name, item.IsCask, m.logChan))
+					return m, tea.Batch(m.progress.Spinner.Tick, waitForLog(m.logChan), waitForPasswordRequest(m.askPassChan), brewActionCmd(action, name, item.IsCask, m.logChan, m.askPassChan, m.answerPassChan))
 				}
 			}
 		}
@@ -321,7 +384,18 @@ func (m Model) View() string {
 	header := RenderGradientBruh(m.headerPos, m.ticks)
 	
 	var mainContent string
-	if m.progress.Active {
+	if m.askingPassword {
+		promptBox := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#f38ba8")). // Red for password
+			Padding(1, 2).
+			Render(lipgloss.JoinVertical(lipgloss.Center,
+				lipgloss.NewStyle().Foreground(lipgloss.Color("#f38ba8")).Bold(true).Render("sudo password required:"),
+				"",
+				m.passwordInput.View(),
+			))
+		mainContent = lipgloss.Place(m.width, m.height-12, lipgloss.Center, lipgloss.Center, promptBox)
+	} else if m.progress.Active {
 		mainContent = lipgloss.Place(m.width, m.height-12, lipgloss.Center, lipgloss.Center, m.progress.View())
 	} else {
 		tableHeader := components.RenderTableHeader(m.width)
